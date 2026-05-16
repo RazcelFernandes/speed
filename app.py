@@ -105,173 +105,172 @@ if "top_speed" not in st.session_state:
     st.session_state.top_speed = 0
 
 # ====================================
-# BUTTON
+# AMBIL GPS PERTAMA
 # ====================================
-start = st.button("▶️ Mulai Tracking")
+with st.spinner("📡 Mengambil lokasi GPS..."):
 
-if start:
+    time.sleep(2)
 
-    # ====================================
-    # GPS PERTAMA
-    # ====================================
     location1 = get_geolocation(component_key="loc1")
 
-    if location1 is not None:
+# ====================================
+# CEK GPS
+# ====================================
+if location1 is not None:
 
-        lat1 = location1["coords"]["latitude"]
-        lon1 = location1["coords"]["longitude"]
+    lat1 = location1["coords"]["latitude"]
+    lon1 = location1["coords"]["longitude"]
 
-        st.success("✅ GPS berhasil terdeteksi")
+    st.success("✅ GPS berhasil terdeteksi")
+
+    # ====================================
+    # DASHBOARD INFO
+    # ====================================
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(f"""
+        <div class="card">
+            <h3>📍 Latitude</h3>
+            <h2>{lat1:.6f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="card">
+            <h3>📍 Longitude</h3>
+            <h2>{lon1:.6f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.write("")
+
+    # ====================================
+    # MAP
+    # ====================================
+    st.subheader("🗺️ Lokasi Kendaraan")
+
+    m = folium.Map(location=[lat1, lon1], zoom_start=17)
+
+    folium.Marker(
+        [lat1, lon1],
+        tooltip="Posisi Kendaraan",
+        icon=folium.Icon(color="red", icon="car")
+    ).add_to(m)
+
+    st_folium(m, width=1200, height=450)
+
+    # ====================================
+    # HITUNG SPEED
+    # ====================================
+    st.info("⏱ Menghitung kecepatan kendaraan...")
+
+    point1 = (lat1, lon1)
+
+    time.sleep(5)
+
+    # ====================================
+    # GPS KEDUA
+    # ====================================
+    location2 = get_geolocation(component_key="loc2")
+
+    if location2 is not None:
+
+        lat2 = location2["coords"]["latitude"]
+        lon2 = location2["coords"]["longitude"]
+
+        point2 = (lat2, lon2)
 
         # ====================================
-        # DASHBOARD
+        # HITUNG JARAK
         # ====================================
-        col1, col2 = st.columns(2)
+        distance = geodesic(point1, point2).meters
 
-        with col1:
+        # ====================================
+        # HITUNG SPEED
+        # ====================================
+        speed_mps = distance / 5
+
+        speed_kmh = speed_mps * 3.6
+
+        # ====================================
+        # UPDATE TOP SPEED
+        # ====================================
+        if speed_kmh > st.session_state.top_speed:
+            st.session_state.top_speed = speed_kmh
+
+        # ====================================
+        # SPEED DASHBOARD
+        # ====================================
+        col_speed1, col_speed2 = st.columns(2)
+
+        with col_speed1:
             st.markdown(f"""
-            <div class="card">
-                <h3>📍 Latitude</h3>
-                <h2>{lat1:.6f}</h2>
+            <div class="speed-box">
+                🚗<br>
+                {speed_kmh:.2f} KM/J
+                <br>
+                <span style="font-size:20px;">
+                Kecepatan Saat Ini
+                </span>
             </div>
             """, unsafe_allow_html=True)
 
-        with col2:
+        with col_speed2:
             st.markdown(f"""
-            <div class="card">
-                <h3>📍 Longitude</h3>
-                <h2>{lon1:.6f}</h2>
+            <div class="speed-box">
+                🏁<br>
+                {st.session_state.top_speed:.2f} KM/J
+                <br>
+                <span style="font-size:20px;">
+                Top Speed
+                </span>
             </div>
             """, unsafe_allow_html=True)
 
         st.write("")
 
         # ====================================
-        # MAP
+        # STATUS SPEED
         # ====================================
-        st.subheader("🗺️ Lokasi Kendaraan")
+        if speed_kmh < 20:
+            st.markdown(
+                '<div class="status-safe">🟢 Kecepatan Rendah</div>',
+                unsafe_allow_html=True
+            )
 
-        m = folium.Map(location=[lat1, lon1], zoom_start=17)
+        elif speed_kmh < 60:
+            st.markdown(
+                '<div class="status-normal">🟡 Kecepatan Normal</div>',
+                unsafe_allow_html=True
+            )
 
-        folium.Marker(
-            [lat1, lon1],
-            tooltip="Posisi Kendaraan",
-            icon=folium.Icon(color="red", icon="car")
-        ).add_to(m)
-
-        st_folium(m, width=1200, height=450)
-
-        # ====================================
-        # LOADING
-        # ====================================
-        st.info("⏱ Menghitung kecepatan kendaraan...")
-
-        point1 = (lat1, lon1)
-
-        time.sleep(5)
+        else:
+            st.markdown(
+                '<div class="status-fast">🔴 Kendaraan Melaju Cepat</div>',
+                unsafe_allow_html=True
+            )
 
         # ====================================
-        # GPS KEDUA
+        # SAVE HISTORY
         # ====================================
-        location2 = get_geolocation(component_key="loc2")
+        history_data = {
+            "Latitude": lat2,
+            "Longitude": lon2,
+            "Speed (KM/J)": round(speed_kmh, 2)
+        }
 
-        if location2 is not None:
+        st.session_state.history.append(history_data)
 
-            lat2 = location2["coords"]["latitude"]
-            lon2 = location2["coords"]["longitude"]
+        # ====================================
+        # HISTORY TABLE
+        # ====================================
+        st.subheader("📊 Riwayat Kecepatan")
 
-            point2 = (lat2, lon2)
+        df = pd.DataFrame(st.session_state.history)
 
-            # ====================================
-            # HITUNG JARAK
-            # ====================================
-            distance = geodesic(point1, point2).meters
+        st.dataframe(df, use_container_width=True)
 
-            # ====================================
-            # HITUNG SPEED
-            # ====================================
-            speed_mps = distance / 5
-            speed_kmh = speed_mps * 3.6
-
-            # ====================================
-            # UPDATE TOP SPEED
-            # ====================================
-            if speed_kmh > st.session_state.top_speed:
-                st.session_state.top_speed = speed_kmh
-
-            # ====================================
-            # SPEED DASHBOARD
-            # ====================================
-            col_speed1, col_speed2 = st.columns(2)
-
-            with col_speed1:
-                st.markdown(f"""
-                <div class="speed-box">
-                    🚗<br>
-                    {speed_kmh:.2f} KM/J
-                    <br>
-                    <span style="font-size:20px;">
-                    Kecepatan Saat Ini
-                    </span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col_speed2:
-                st.markdown(f"""
-                <div class="speed-box">
-                    🏁<br>
-                    {st.session_state.top_speed:.2f} KM/J
-                    <br>
-                    <span style="font-size:20px;">
-                    Top Speed
-                    </span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.write("")
-
-            # ====================================
-            # STATUS
-            # ====================================
-            if speed_kmh < 20:
-                st.markdown(
-                    '<div class="status-safe">🟢 Kecepatan Rendah</div>',
-                    unsafe_allow_html=True
-                )
-
-            elif speed_kmh < 60:
-                st.markdown(
-                    '<div class="status-normal">🟡 Kecepatan Normal</div>',
-                    unsafe_allow_html=True
-                )
-
-            else:
-                st.markdown(
-                    '<div class="status-fast">🔴 Kendaraan Melaju Cepat</div>',
-                    unsafe_allow_html=True
-                )
-
-            st.write("")
-
-            # ====================================
-            # SAVE HISTORY
-            # ====================================
-            history_data = {
-                "Latitude": lat2,
-                "Longitude": lon2,
-                "Speed (KM/J)": round(speed_kmh, 2)
-            }
-
-            st.session_state.history.append(history_data)
-
-            # ====================================
-            # HISTORY TABLE
-            # ====================================
-            st.subheader("📊 Riwayat Kecepatan")
-
-            df = pd.DataFrame(st.session_state.history)
-
-            st.dataframe(df, use_container_width=True)
-
-    else:
-        st.error("❌ GPS tidak aktif atau izin lokasi ditolak")
+else:
+    st.error("❌ GPS tidak aktif atau izin lokasi ditolak")
